@@ -5,7 +5,7 @@
 int main(int argc, char *argv[])
 {
    FILE *fp;
-
+ 
    openlog(NULL, 0, LOG_USER);
 
    if( argc != 3 )
