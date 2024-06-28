@@ -1,4 +1,10 @@
 #include "systemcalls.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <wait.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -16,6 +22,10 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+    if( system(cmd) == -1 )
+    {
+        return false;
+    }
 
     return true;
 }
@@ -47,7 +57,7 @@ bool do_exec(int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    //command[count] = command[count];
 
 /*
  * TODO:
@@ -58,8 +68,38 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
     va_end(args);
+    
+    int status;
+    
+    fflush(stdout);
+
+    pid_t pid = fork();
+
+    if(pid == -1)
+    {
+        return false;
+    }
+    
+    if(pid == 0)
+    {
+        execv(command[0], command);
+
+        exit(EXIT_FAILURE);
+    }    
+
+    if( waitpid(pid, &status, 0) == -1)
+    {
+        return false;
+    }
+    else if( WIFEXITED(status) )
+    {
+        return (WEXITSTATUS(status) == 0);
+    }
+    else
+    {
+        return false;
+    }
 
     return true;
 }
@@ -82,7 +122,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    //command[count] = command[count];
 
 
 /*
@@ -92,8 +132,51 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
-
     va_end(args);
+    
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if( fd < 0)
+    {
+        return false;
+    }
+
+    int status;
+
+    fflush(stdout);
+
+    pid_t pid = fork();
+
+    if(pid == -1)
+    {
+        return false;
+    }
+    
+    if(pid == 0)
+    {
+        if (dup2(fd, 1) < 0) 
+        {
+             return false;
+        }
+        close(fd);
+        
+        execvp(command[0], command);
+        exit(EXIT_FAILURE);
+    }    
+
+    close(fd);
+
+    if( waitpid(pid, &status, 0) == -1)
+    {
+        return false;
+    }
+    else if( WIFEXITED(status) )
+    {
+        return (WEXITSTATUS(status) == 0);
+    }
+    else
+    {
+        return false;
+    }
 
     return true;
 }
